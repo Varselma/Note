@@ -1,0 +1,120 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, simpledialog
+from tkinter.scrolledtext import ScrolledText
+import os
+
+class BlocNotesAmeliore:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Varselma Note")
+        self.root.geometry("1000x1000")
+
+        self.current_file = None
+
+        self.create_widgets()
+        self.create_menu()
+
+    def create_widgets(self):
+        self.text_area = ScrolledText(self.root, undo=True, wrap='word', font=("Consolas", 12))
+        self.text_area.pack(fill='both', expand=True)
+
+    def create_menu(self):
+        menubar = tk.Menu(self.root)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Nouveau", command=self.nouveau_fichier)
+        file_menu.add_command(label="Ouvrir", command=self.ouvrir_fichier)
+        file_menu.add_command(label="Enregistrer", command=self.enregistrer_fichier)
+        file_menu.add_command(label="Enregistrer sous", command=self.enregistrer_sous)
+        file_menu.add_separator()
+        file_menu.add_command(label="Quitter", command=self.root.quit)
+        menubar.add_cascade(label="Fichier", menu=file_menu)
+
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Annuler", command=self.text_area.edit_undo)
+        edit_menu.add_command(label="Rétablir", command=self.text_area.edit_redo)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Couper", command=lambda: self.text_area.event_generate("<<Cut>>"))
+        edit_menu.add_command(label="Copier", command=lambda: self.text_area.event_generate("<<Copy>>"))
+        edit_menu.add_command(label="Coller", command=lambda: self.text_area.event_generate("<<Paste>>"))
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Rechercher", command=self.rechercher)
+        menubar.add_cascade(label="Édition", menu=edit_menu)
+
+        theme_menu = tk.Menu(menubar, tearoff=0)
+        theme_menu.add_command(label="Clair", command=self.theme_clair)
+        theme_menu.add_command(label="Sombre", command=self.theme_sombre)
+        menubar.add_cascade(label="Thème", menu=theme_menu)
+
+        self.root.config(menu=menubar)
+
+    def nouveau_fichier(self):
+        if self.confirm_discard_changes():
+            self.text_area.delete("1.0", tk.END)
+            self.current_file = None
+            self.root.title("-Varselma Note-Nouveau Fichier ")
+
+    def ouvrir_fichier(self):
+        if self.confirm_discard_changes():
+            file_path = filedialog.askopenfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
+            if file_path:
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        self.text_area.delete("1.0", tk.END)
+                        self.text_area.insert(tk.END, file.read())
+                    self.current_file = file_path
+                    self.root.title(f"Bloc-notes Amélioré - {os.path.basename(file_path)}")
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier : {e}")
+
+    def enregistrer_fichier(self):
+        if self.current_file:
+            try:
+                with open(self.current_file, 'w', encoding='utf-8') as file:
+                    file.write(self.text_area.get("1.0", tk.END))
+                messagebox.showinfo("Sauvegardé", "Fichier enregistré avec succès.")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Impossible d'enregistrer le fichier : {e}")
+        else:
+            self.enregistrer_sous()
+
+    def enregistrer_sous(self):
+        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    file.write(self.text_area.get("1.0", tk.END))
+                self.current_file = file_path
+                self.root.title(f"Bloc-notes Amélioré - {os.path.basename(file_path)}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Impossible d'enregistrer le fichier : {e}")
+
+    def rechercher(self):
+        mot = simpledialog.askstring("Rechercher", "Entrez le texte à rechercher :")
+        self.text_area.tag_remove('found', '1.0', tk.END)
+        if mot:
+            idx = '1.0'
+            while True:
+                idx = self.text_area.search(mot, idx, nocase=1, stopindex=tk.END)
+                if not idx:
+                    break
+                lastidx = f"{idx}+{len(mot)}c"
+                self.text_area.tag_add('found', idx, lastidx)
+                idx = lastidx
+            self.text_area.tag_config('found', foreground='red', background='yellow')
+
+    def confirm_discard_changes(self):
+        if self.text_area.edit_modified():
+            return messagebox.askyesno("Confirmer", "Des modifications non enregistrées seront perdues. Continuer ?")
+        return True
+
+    def theme_clair(self):
+        self.text_area.config(bg="white", fg="black", insertbackground="black")
+
+    def theme_sombre(self):
+        self.text_area.config(bg="#1e1e1e", fg="white", insertbackground="white")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = BlocNotesAmeliore(root)
+    root.mainloop()
